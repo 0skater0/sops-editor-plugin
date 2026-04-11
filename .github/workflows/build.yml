@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Note: the JetBrains Plugin Verifier is intentionally NOT run in CI. It downloads
+# the full IDE distribution for every target version (~1 GB per IDE, 9 targets),
+# which exceeds the free disk space on GitHub-hosted ubuntu-latest runners. Run it
+# locally before cutting a release:
+#
+#   ./gradlew verifyPlugin
+#
+# The compatibility matrix is declared in build.gradle.kts under pluginVerification.ides.
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build plugin
+        run: ./gradlew buildPlugin
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sops-editor-plugin
+          path: build/distributions/*.zip
+          if-no-files-found: error
