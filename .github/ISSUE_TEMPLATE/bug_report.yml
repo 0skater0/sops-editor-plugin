@@ -1,0 +1,85 @@
+name: Bug report
+description: Something in the plugin does not work as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as you can.
+
+        **Do not paste raw secrets, age keys, or decrypted content into this issue.** The
+        plugin sanitizes its log file, but snippets you paste here are public. Redact
+        anything sensitive before submitting.
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: "Settings → Plugins → SOPS Editor → version shown in the details pane"
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: ide-version
+    attributes:
+      label: IDE and version
+      description: "e.g. IntelliJ IDEA Community 2024.3.2"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: "Windows 11, macOS 14, Ubuntu 24.04, …"
+    validations:
+      required: true
+  - type: input
+    id: sops-version
+    attributes:
+      label: "`sops --version`"
+      description: "Paste the output of `sops --version`"
+    validations:
+      required: true
+  - type: dropdown
+    id: key-type
+    attributes:
+      label: Encryption key type
+      options:
+        - age
+        - PGP
+        - KMS (AWS / GCP / Azure / Vault)
+        - Other / multiple
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: "Tell us what you did, one step per line"
+      placeholder: |
+        1. Create a new .env file
+        2. Encrypt it via Right-click → Encrypt with SOPS
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log excerpt
+      description: |
+        From **Settings → Tools → SOPS Editor → Open Log File**. Paste only the lines
+        around the failure. Secrets are automatically masked in the log, but double-check
+        before pasting.
+      render: text

@@ -1,0 +1,96 @@
+<idea-plugin>
+    <id>dev.ott.sops-editor-plugin</id>
+    <name>SOPS Editor</name>
+    <vendor url="https://github.com/0skater0/sops-editor-plugin">Lukas Ott</vendor>
+
+    <description><![CDATA[
+        <p>
+            Edit <a href="https://github.com/getsops/sops">SOPS</a>-encrypted files directly in your
+            JetBrains IDE. The plugin opens a split view with the decrypted content on one side and the
+            raw ciphertext on the other, and re-encrypts the file when you save.
+        </p>
+        <h3>Features</h3>
+        <ul>
+            <li>Side-by-side decrypted and encrypted view for any SOPS file</li>
+            <li>Automatic re-encryption on Ctrl+S, with an opt-out in settings</li>
+            <li>Context menu actions for Encrypt with SOPS, Decrypt with SOPS and New SOPS Encrypted File</li>
+            <li>Default shortcuts Ctrl+Alt+E to encrypt and Ctrl+Alt+D to decrypt</li>
+            <li>Supports .env, YAML, JSON, INI, TOML and binary files, matching the <code>sops</code> CLI itself</li>
+            <li>Age key and PGP support through the system <code>sops</code> binary</li>
+            <li>A setup validator that checks your <code>sops</code> binary, age key file and environment</li>
+            <li>A log file with secret masking for AGE keys, PEM private key blocks and SSH public keys</li>
+        </ul>
+        <h3>Requirements</h3>
+        <ul>
+            <li>The <code>sops</code> CLI on your PATH, or a full path configured in settings</li>
+            <li>An age key file (default: <code>~/.config/sops/age/keys.txt</code>) or a configured PGP key</li>
+        </ul>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <h3>1.0.0</h3>
+        <p>First public release. See the README on GitHub for the feature list and setup instructions.</p>
+    ]]></change-notes>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <resource-bundle>messages.SopsBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Settings -->
+        <applicationConfigurable
+                id="dev.ott.sops.editor.settings.SopsSettingsConfigurable"
+                groupId="tools"
+                bundle="messages.SopsBundle"
+                key="settings.title"
+                instance="dev.ott.sops.editor.settings.SopsSettingsConfigurable"/>
+
+        <applicationService
+                serviceImplementation="dev.ott.sops.editor.settings.SopsSettings"/>
+
+        <!-- Editor -->
+        <fileEditorProvider
+                implementation="dev.ott.sops.editor.SopsEditorProvider"
+                order="first"/>
+
+        <!-- Notifications -->
+        <editorNotificationProvider
+                implementation="dev.ott.sops.editor.notifications.SopsEditorNotificationProvider"/>
+
+        <notificationGroup id="sops.notification.general"
+                           displayType="BALLOON"/>
+        <notificationGroup id="sops.notification.important"
+                           displayType="STICKY_BALLOON"/>
+
+        <!-- Save Listener -->
+        <fileDocumentManagerListener
+                implementation="dev.ott.sops.editor.SopsSaveListener"/>
+    </extensions>
+
+    <actions>
+        <action id="dev.ott.sops.editor.SopsEncryptAction"
+                class="dev.ott.sops.editor.SopsEncryptAction"
+                text="Encrypt with SOPS"
+                description="Encrypt the selected file using SOPS">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt E"/>
+        </action>
+
+        <action id="dev.ott.sops.editor.SopsDecryptAction"
+                class="dev.ott.sops.editor.SopsDecryptAction"
+                text="Decrypt with SOPS"
+                description="Decrypt the selected file using SOPS">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt D"/>
+        </action>
+
+        <action id="dev.ott.sops.editor.SopsNewFileAction"
+                class="dev.ott.sops.editor.SopsNewFileAction"
+                text="SOPS Encrypted File"
+                description="Create a new SOPS-encrypted file">
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
