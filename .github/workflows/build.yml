@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+
 # Note: the JetBrains Plugin Verifier is intentionally NOT run in CI. It downloads
 # the full IDE distribution for every target version (~1 GB per IDE, 9 targets),
 # which exceeds the free disk space on GitHub-hosted ubuntu-latest runners. Run it

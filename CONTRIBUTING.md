@@ -32,7 +32,7 @@ src/
 │   │   ├── SopsEditor.kt              # Split-view editor implementation
 │   │   ├── SopsEditorProvider.kt      # Registers the editor for SOPS files
 │   │   ├── SopsDetector.kt            # Detects SOPS-encrypted files by format
-│   │   ├── SopsFormat.kt              # Format enum (ENV, YAML, JSON, INI, TOML, BINARY)
+│   │   ├── SopsFormat.kt              # Format enum (ENV, YAML, JSON, INI, BINARY)
 │   │   ├── SopsService.kt             # Async encrypt/decrypt orchestration
 │   │   ├── SopsWrapper.kt             # Low-level sops CLI wrapper
 │   │   ├── SopsLog.kt                 # Sanitizing dual logger
@@ -94,4 +94,4 @@ Unit tests live under `src/test/kotlin/` and run with `./gradlew test`. Pure-Kot
 2. Update `CHANGELOG.md` under a new version heading with the release date.
 3. Update the `<change-notes>` block in `plugin.xml` with the highlights.
 4. Commit and push to `master`.
-5. Tag the commit `vX.Y.Z` as an annotated tag. CI builds the plugin, creates a GitHub release with the ZIP attached, and uploads to the JetBrains Marketplace if the `PUBLISH_TOKEN` secret is configured.
+5. Tag the commit `vX.Y.Z` as an annotated tag. CI builds the plugin, creates a GitHub release with the ZIP attached, and uploads to the JetBrains Marketplace if the `JETBRAINS_MARKETPLACE_TOKEN` secret is configured (the workflow exposes it to Gradle as the `PUBLISH_TOKEN` environment variable).

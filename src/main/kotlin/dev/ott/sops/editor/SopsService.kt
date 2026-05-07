@@ -1,14 +1,11 @@
 package dev.ott.sops.editor
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.ott.sops.editor.notifications.SopsNotifier
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Collections
 
 @Service(Service.Level.PROJECT)
@@ -40,19 +37,6 @@ class SopsService(
         }
     }
 
-    fun decrypt_text(text: String, format: SopsFormat, on_success: suspend (String) -> Unit) {
-        scope.launch {
-            val result = SopsWrapper.decrypt_text(text, format)
-            if (result.success) {
-                on_success(result.stdout)
-            } else {
-                val error = sanitize_error(result.stderr, result.exit_code)
-                SopsLog.warn("SOPS text decrypt failed: $error")
-                SopsNotifier.notify_decrypt_error(project, error)
-            }
-        }
-    }
-
     fun encrypt_and_save(
         file: VirtualFile,
         decrypted_text: String,
@@ -69,10 +53,11 @@ class SopsService(
             val result = SopsWrapper.encrypt_text(decrypted_text, format, file.parent?.path)
             if (result.success) {
                 val encrypted_content = result.stdout
-                withContext(Dispatchers.Main) {
-                    ApplicationManager.getApplication().runWriteAction {
-                        file.setBinaryContent(encrypted_content.toByteArray(Charsets.UTF_8))
-                    }
+                // setBinaryContent triggers the platform's reload-from-disk listener which
+                // needs a non-modal write context, so the helper schedules through
+                // invokeLater(nonModal()) instead of `Dispatchers.Main + runWriteAction`.
+                run_write_action_safely {
+                    file.setBinaryContent(encrypted_content.toByteArray(Charsets.UTF_8))
                 }
                 on_success(encrypted_content)
                 clear_error(file.path)
@@ -91,10 +76,8 @@ class SopsService(
         scope.launch {
             val result = SopsWrapper.encrypt_file_in_place(file)
             if (result.success) {
-                withContext(Dispatchers.Main) {
-                    ApplicationManager.getApplication().runWriteAction {
-                        file.refresh(false, false)
-                    }
+                run_write_action_safely {
+                    file.refresh(false, false)
                 }
                 on_success()
                 SopsNotifier.notify_encrypt_success(project)
@@ -109,10 +92,8 @@ class SopsService(
         scope.launch {
             val result = SopsWrapper.decrypt_file_in_place(file)
             if (result.success) {
-                withContext(Dispatchers.Main) {
-                    ApplicationManager.getApplication().runWriteAction {
-                        file.refresh(false, false)
-                    }
+                run_write_action_safely {
+                    file.refresh(false, false)
                 }
                 on_success()
             } else {

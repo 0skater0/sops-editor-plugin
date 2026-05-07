@@ -17,8 +17,7 @@ enum class SopsFormat(
     YAML(listOf(".yaml", ".yml"), "yaml", "format.yaml", "template.yaml"),
     JSON(listOf(".json"), "json", "format.json", "template.json"),
     INI(listOf(".ini"), "ini", "format.ini", "template.ini"),
-    TOML(listOf(".toml"), "toml", "format.toml", "template.toml"),
-    BINARY(listOf(".bin"), "binary", "format.binary", "template.binary");
+    BINARY(listOf(".sops", ".bin"), "binary", "format.binary", "template.binary");
 
     val primary_extension: String
         get() = extensions.first()
@@ -31,6 +30,12 @@ enum class SopsFormat(
 
     companion object {
         fun from_file(file: VirtualFile): SopsFormat {
+            // Content always wins. A file's SOPS structure is the source of truth, even
+            // when its filename disagrees — a binary envelope renamed to `secrets.yaml`
+            // must still decrypt as binary. Filename matching is only a fallback for
+            // plaintext files (no SOPS markers present yet, headed for the Encrypt with
+            // SOPS action) so the plugin can still pick a sensible format to encrypt as.
+            SopsDetector.detect_sops_format_from_file(file)?.let { return it }
             val name = file.name.lowercase()
             return entries.firstOrNull { format ->
                 format.extensions.any { ext -> name.endsWith(ext) }

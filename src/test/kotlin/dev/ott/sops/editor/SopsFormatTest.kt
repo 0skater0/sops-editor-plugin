@@ -13,7 +13,7 @@ class SopsFormatTest {
         assertEquals(SopsFormat.YAML, SopsFormat.from_extension(".yml"))
         assertEquals(SopsFormat.JSON, SopsFormat.from_extension(".json"))
         assertEquals(SopsFormat.INI, SopsFormat.from_extension(".ini"))
-        assertEquals(SopsFormat.TOML, SopsFormat.from_extension(".toml"))
+        assertEquals(SopsFormat.BINARY, SopsFormat.from_extension(".sops"))
         assertEquals(SopsFormat.BINARY, SopsFormat.from_extension(".bin"))
     }
 
@@ -21,7 +21,7 @@ class SopsFormatTest {
     fun `from_extension is case insensitive`() {
         assertEquals(SopsFormat.YAML, SopsFormat.from_extension(".YAML"))
         assertEquals(SopsFormat.JSON, SopsFormat.from_extension(".Json"))
-        assertEquals(SopsFormat.TOML, SopsFormat.from_extension(".TOML"))
+        assertEquals(SopsFormat.INI, SopsFormat.from_extension(".INI"))
     }
 
     @Test
@@ -35,6 +35,8 @@ class SopsFormatTest {
         assertEquals(".env", SopsFormat.DOTENV.primary_extension)
         assertEquals(".yaml", SopsFormat.YAML.primary_extension)
         assertEquals(".json", SopsFormat.JSON.primary_extension)
+        // Tempfile suffix triggers `.sops.yaml` rules like `path_regex: \.sops$`.
+        assertEquals(".sops", SopsFormat.BINARY.primary_extension)
     }
 
     @Test
@@ -43,7 +45,6 @@ class SopsFormatTest {
         assertEquals("yaml", SopsFormat.YAML.sops_type)
         assertEquals("json", SopsFormat.JSON.sops_type)
         assertEquals("ini", SopsFormat.INI.sops_type)
-        assertEquals("toml", SopsFormat.TOML.sops_type)
         assertEquals("binary", SopsFormat.BINARY.sops_type)
     }
 }

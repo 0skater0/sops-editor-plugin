@@ -8,7 +8,7 @@ Edit [SOPS](https://github.com/getsops/sops)-encrypted files directly in your ID
 
 - Split-view editor with the decrypted content on the left and the encrypted content on the right
 - Re-encrypt automatically on save (toggle in settings)
-- Supports `.env`, YAML, JSON, INI, TOML and binary files (same list as the `sops` CLI itself)
+- Supports `.env`, YAML, JSON, INI and binary (`.sops`, `.bin`) files (same list as the `sops` CLI itself)
 - Context menu actions for Encrypt, Decrypt and New SOPS Encrypted File, plus `Ctrl+Alt+E` and `Ctrl+Alt+D` shortcuts
 - A setup validator that checks your `sops` binary, age key and environment in one click
 - Auto-detects the `sops` binary on `PATH`, with fallbacks for Chocolatey, Homebrew and `/usr/local/bin`

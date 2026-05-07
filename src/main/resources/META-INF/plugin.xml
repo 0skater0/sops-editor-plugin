@@ -15,7 +15,7 @@
             <li>Automatic re-encryption on Ctrl+S, with an opt-out in settings</li>
             <li>Context menu actions for Encrypt with SOPS, Decrypt with SOPS and New SOPS Encrypted File</li>
             <li>Default shortcuts Ctrl+Alt+E to encrypt and Ctrl+Alt+D to decrypt</li>
-            <li>Supports .env, YAML, JSON, INI, TOML and binary files, matching the <code>sops</code> CLI itself</li>
+            <li>Supports .env, YAML, JSON, INI and binary (.sops, .bin) files, matching the <code>sops</code> CLI itself</li>
             <li>Age key and PGP support through the system <code>sops</code> binary</li>
             <li>A setup validator that checks your <code>sops</code> binary, age key file and environment</li>
             <li>A log file with secret masking for AGE keys, PEM private key blocks and SSH public keys</li>
@@ -28,6 +28,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.1.0</h3>
+        <ul>
+            <li>Binary-mode SOPS files (.sops + .bin) now open in the split-view editor with the JSON envelope shown read-only on the right and the inner extension driving syntax highlighting on the left.</li>
+            <li>SOPS files are auto-detected from their content, so files with non-standard extensions are picked up automatically.</li>
+            <li>TOML dropped from the supported list; .toml SOPS files are detected as binary mode (which is what SOPS actually produces for them).</li>
+            <li>Save no longer crashes with a <em>Write-unsafe context</em> error on newer IntelliJ Platform builds.</li>
+            <li>Added SECURITY.md and a least-privilege permissions block to the build workflow.</li>
+        </ul>
         <h3>1.0.0</h3>
         <p>First public release. See the README on GitHub for the feature list and setup instructions.</p>
     ]]></change-notes>

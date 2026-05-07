@@ -30,46 +30,29 @@ object SopsWrapper {
     }
 
     suspend fun decrypt_file(file: VirtualFile): SopsResult = withContext(Dispatchers.IO) {
+        val format = SopsFormat.from_file(file)
         execute(
-            listOf("--decrypt", file.path),
+            // Pass --input-type/--output-type explicitly so content-detected files with
+            // non-standard extensions decrypt with the right store. Without these flags
+            // sops falls back to the binary store on unknown extensions, which fails on
+            // per-key encrypted YAML/JSON.
+            listOf("--decrypt", "--input-type", format.sops_type, "--output-type", format.sops_type, file.path),
             working_dir = file.parent?.path
         )
     }
 
     suspend fun decrypt_file_in_place(file: VirtualFile): SopsResult = withContext(Dispatchers.IO) {
+        val format = SopsFormat.from_file(file)
         execute(
-            listOf("--decrypt", "--in-place", file.path),
-            working_dir = file.parent?.path
-        )
-    }
-
-    suspend fun decrypt_text(text: String, format: SopsFormat): SopsResult = withContext(Dispatchers.IO) {
-        val tmp_file = create_temp_file(text, format)
-        try {
-            val result = execute(
-                listOf("--decrypt", tmp_file.toAbsolutePath().toString()),
-                working_dir = tmp_file.parent.toAbsolutePath().toString()
-            )
-            result
-        } finally {
-            try {
-                Files.deleteIfExists(tmp_file)
-            } catch (e: Exception) {
-                SopsLog.warn("Failed to delete temp file", e)
-            }
-        }
-    }
-
-    suspend fun encrypt_file(file: VirtualFile): SopsResult = withContext(Dispatchers.IO) {
-        execute(
-            listOf("--encrypt", file.path),
+            listOf("--decrypt", "--input-type", format.sops_type, "--output-type", format.sops_type, "--in-place", file.path),
             working_dir = file.parent?.path
         )
     }
 
     suspend fun encrypt_file_in_place(file: VirtualFile): SopsResult = withContext(Dispatchers.IO) {
+        val format = SopsFormat.from_file(file)
         execute(
-            listOf("--encrypt", "--in-place", file.path),
+            listOf("--encrypt", "--input-type", format.sops_type, "--output-type", format.sops_type, "--in-place", file.path),
             working_dir = file.parent?.path
         )
     }
