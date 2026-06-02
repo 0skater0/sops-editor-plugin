@@ -28,6 +28,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.1.1</h3>
+        <ul>
+            <li>Fixed a bug that could cause high CPU usage while a SOPS file was open: the editor reported the encrypted file to the IDE's code-analysis daemon while showing the decrypted contents, which made the daemon restart in a loop.</li>
+        </ul>
         <h3>1.1.0</h3>
         <ul>
             <li>Binary-mode SOPS files (.sops + .bin) now open in the split-view editor with the JSON envelope shown read-only on the right and the inner extension driving syntax highlighting on the left.</li>

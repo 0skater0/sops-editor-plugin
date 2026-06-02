@@ -2,6 +2,12 @@
 
 All notable changes to this plugin go here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-06-02
+
+### Fixed
+
+- High CPU usage that could occur while a SOPS file was open. The split-view editor reported the on-disk ciphertext file from `getFile()` while showing the decrypted document, so the IDE's code-analysis daemon built a highlighting session for one file but ran its passes against the other editor and kept restarting itself in a loop. `getFile()` now returns the decrypted pane's file, so the daemon completes normally and the editor goes idle. Most noticeable on recent IntelliJ Platform builds (2026.1+).
+
 ## [1.1.0] - 2026-05-07
 
 ### Added
@@ -56,5 +62,6 @@ The JetBrains Plugin Verifier passes against these IDE builds:
 
 From 2025.3 onwards, JetBrains ships IDEA Community and Ultimate as a single distribution, so the Ultimate column covers both.
 
+[1.1.1]: https://github.com/0skater0/sops-editor-plugin/releases/tag/v1.1.1
 [1.1.0]: https://github.com/0skater0/sops-editor-plugin/releases/tag/v1.1.0
 [1.0.0]: https://github.com/0skater0/sops-editor-plugin/releases/tag/v1.0.0

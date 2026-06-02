@@ -150,7 +150,10 @@ class SopsEditor(
 
     fun get_decrypted_text(): String = myEditor.editor.document.text
 
-    override fun getFile(): VirtualFile = original_file
+    // Return the decrypted document shown here, not the on-disk ciphertext: the daemon resolves
+    // the file from getFile() but runs passes against this editor, and a mismatch makes it
+    // restart endlessly (high CPU). Save and notifications use the original_file field directly.
+    override fun getFile(): VirtualFile = myEditor.file ?: original_file
 
     override fun isModified(): Boolean = is_modified
 }
