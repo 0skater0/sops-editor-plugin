@@ -1,3 +1,12 @@
+buildscript {
+    dependencies {
+        classpath(platform(libs.jackson.bom))
+        constraints {
+            classpath(libs.jsoup)
+        }
+    }
+}
+
 plugins {
     id("java")
     alias(libs.plugins.kotlin)
@@ -9,6 +18,14 @@ version = providers.gradleProperty("pluginVersion").get()
 
 kotlin {
     jvmToolchain(providers.gradleProperty("javaVersion").get().toInt())
+    compilerOptions {
+        // The IDE provides the Kotlin stdlib at runtime (2024.2 ships 1.9.24, 2024.3 ships
+        // 2.0.21). Kotlin 2.4 cannot target API 1.9 anymore, so 2.0 is the lowest available,
+        // which is still above the 1.9.24 stdlib of the 242 baseline. The compiler cannot catch
+        // a call into a 2.0-only stdlib API, so run `./gradlew verifyPlugin` locally before
+        // every release; CI does not run it.
+        apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
+    }
 }
 
 repositories {
@@ -28,7 +45,8 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
 }
@@ -43,8 +61,8 @@ intellijPlatform {
             sinceBuild = "242"
             // Intentionally left open. The plugin only uses stable public IntelliJ Platform
             // APIs (TextEditor, FileEditorProvider, EditorNotificationProvider, Configurable,
-            // AnAction). Compatibility with future builds is enforced by the JetBrains Plugin
-            // Verifier in CI rather than by an artificial upper bound.
+            // AnAction). Compatibility with future builds is checked by running the JetBrains
+            // Plugin Verifier locally before each release rather than by an artificial upper bound.
             untilBuild = provider { null }
         }
 
@@ -89,6 +107,6 @@ tasks.test {
 
 tasks {
     wrapper {
-        gradleVersion = "8.13"
+        gradleVersion = "9.8.1"
     }
 }

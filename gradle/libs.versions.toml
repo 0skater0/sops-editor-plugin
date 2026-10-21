@@ -1,6 +1,14 @@
 [versions]
-kotlin = "2.1.20"
-intellijPlatform = "2.11.0"
+kotlin = "2.4.21"
+intellijPlatform = "2.19.0"
+# Build-classpath overrides for transitive deps of the IntelliJ Platform Gradle Plugin
+# that are still pinned to vulnerable versions. Drop once the plugin ships them itself.
+jackson = "2.21.7"
+jsoup = "1.23.2"
+
+[libraries]
+jackson-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
