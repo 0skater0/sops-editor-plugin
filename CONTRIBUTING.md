@@ -40,6 +40,9 @@ src/
 │   │   ├── SopsDecryptAction.kt       # "Decrypt with SOPS" context action
 │   │   ├── SopsNewFileAction.kt       # "New → SOPS Encrypted File" action + dialog
 │   │   ├── SopsSaveListener.kt        # Auto-encrypt on save hook
+│   │   ├── SopsStdin.kt               # sops version parsing and stdin arguments
+│   │   ├── SopsWslCommand.kt          # Runs sops inside WSL for files stored there
+│   │   ├── diff/                      # "SOPS: decrypted" diff viewer
 │   │   ├── notifications/
 │   │   └── settings/
 │   └── resources/
@@ -87,6 +90,27 @@ Every user-facing string goes through `SopsBundle.message("some.key")` with a ma
 ## Testing
 
 Unit tests live under `src/test/kotlin/` and run with `./gradlew test`. Pure-Kotlin logic like `LogSanitizer` and `validate_new_filename` is deliberately kept free of IntelliJ platform dependencies so it can be tested with plain JUnit. Anything that touches `VirtualFile` or the `Application` instance needs a test that extends `BasePlatformTestCase` from the test framework.
+
+`SopsWslIntegrationTest` checks the WSL route against a real distribution on Windows. It is skipped unless `SOPS_WSL_E2E=1` is set and needs a prepared distro, described in the class comment. Run it once per launch route, since the IDE starts WSL processes through its IJent agent by default and falls back to `wsl.exe`:
+
+```bash
+SOPS_WSL_E2E=1 SOPS_WSL_E2E_MODE=ijent ./gradlew test --rerun --tests 'dev.ott.sops.editor.SopsWslIntegrationTest'
+SOPS_WSL_E2E=1 SOPS_WSL_E2E_MODE=wslexe ./gradlew test --rerun --tests 'dev.ott.sops.editor.SopsWslIntegrationTest'
+```
+
+The test changes the distribution while it runs and restores everything at the end: it appends lines to `~/.profile`, temporarily moves the default age key `~/.config/sops/age/keys.txt` to `~/k2.txt`, rewrites `secrets/a.yaml`, and places a short-lived wrapper script in `~/.sops-e2e-backup` that pretends to be an old `sops`. If the run is killed halfway, check these before using the distribution for real work. Use a test key, not your real one.
+
+`SopsAcceptanceTest` drives the plugin at editor level against a real `sops`: stdin encryption without temporary files, the temporary-file fallback for `sops` older than 3.10, saving by hand with *Encrypt with SOPS* while automatic re-encryption is off, *New SOPS Encrypted File* with a failing and a matching `.sops.yaml` rule, and the decrypted diff viewer on two Git revisions including switching to the ciphertext viewer, the setting turned off and a side that cannot be decrypted. It is skipped unless `SOPS_ACCEPT=1` is set. It creates its own throwaway Git repository with dummy values and deletes it at the end.
+
+For the native route it needs a scratch directory outside the repository and `APPDATA` pointing inside it, so `sops` never sees your real Windows age key; the test generates a fresh key with `age-keygen` (defaults `C:\tools\sops.exe` and `C:\tools\age-keygen.exe`, override with `SOPS_ACCEPT_SOPS` and `SOPS_ACCEPT_AGE_KEYGEN`). For the WSL route it uses the distribution prepared for `SopsWslIntegrationTest`, takes the recipient from `~/sops-e2e/.sops.yaml` and works in `~/sops-accept-<timestamp>`:
+
+```bash
+APPDATA="$SCRATCH/appdata" SOPS_ACCEPT=1 SOPS_ACCEPT_TARGET=native SOPS_ACCEPT_NATIVE_DIR="$SCRATCH" ./gradlew test --rerun --tests 'dev.ott.sops.editor.SopsAcceptanceTest'
+SOPS_ACCEPT=1 SOPS_ACCEPT_TARGET=wsl SOPS_WSL_E2E_MODE=ijent ./gradlew test --rerun --tests 'dev.ott.sops.editor.SopsAcceptanceTest'
+SOPS_ACCEPT=1 SOPS_ACCEPT_TARGET=wsl SOPS_WSL_E2E_MODE=wslexe ./gradlew test --rerun --tests 'dev.ott.sops.editor.SopsAcceptanceTest'
+```
+
+The acceptance test extends the platform's JUnit 3 style `FileEditorManagerTestCase`, so the build puts the JUnit 4 jar that ships with the IDE distribution on the test classpath.
 
 ## Release process
 

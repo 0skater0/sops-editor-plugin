@@ -49,6 +49,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.opentest4j:opentest4j:1.3.0")
+    // The editor-level acceptance test extends the platform's JUnit 3 style test cases. It uses
+    // the JUnit 4 jar that ships inside the IDE distribution instead of a separate artifact.
+    testImplementation(files(provider { project.intellijPlatform.platformPath.resolve("lib/junit4.jar") }))
 }
 
 intellijPlatform {
@@ -88,11 +91,13 @@ intellijPlatform {
             create("IC", "2025.2")
             create("IU", "2025.3")
             create("IU", "2026.1")
+            create("IU", "2026.2")
 
             // PhpStorm explicitly — primary daily-driver target for this plugin.
             create("PS", "2024.2")
             create("PS", "2025.3")
             create("PS", "2026.1")
+            create("PS", "2026.2")
         }
     }
 

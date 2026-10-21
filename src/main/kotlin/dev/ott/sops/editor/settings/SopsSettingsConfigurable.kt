@@ -12,6 +12,7 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextArea
+import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBUI
 import dev.ott.sops.editor.SopsBundle
@@ -29,11 +30,13 @@ class SopsSettingsConfigurable : Configurable {
     private var sops_path_field: TextFieldWithBrowseButton? = null
     private var sops_verify_area: JBTextArea? = null
     private var sops_verify_icon: JBLabel? = null
+    private var wsl_sops_path_field: JBTextField? = null
     private var age_key_field: TextFieldWithBrowseButton? = null
     private var age_verify_area: JBTextArea? = null
     private var age_verify_icon: JBLabel? = null
     private var auto_encrypt_checkbox: JBCheckBox? = null
     private var encrypted_editable_checkbox: JBCheckBox? = null
+    private var decrypted_diff_checkbox: JBCheckBox? = null
     private var environment_area: JBTextArea? = null
     private var log_path_field: TextFieldWithBrowseButton? = null
     private var validate_result_area: JBTextArea? = null
@@ -65,6 +68,18 @@ class SopsSettingsConfigurable : Configurable {
         }
         val sops_field_row = create_field_with_button(sops_path_field!!, sops_verify_button)
 
+        // --- SOPS executable inside WSL ---
+        wsl_sops_path_field = JBTextField(settings.wsl_sops_path)
+        val wsl_sops_hint = JBTextArea(SopsBundle.message("settings.wsl.sops.path.hint")).apply {
+            isEditable = false
+            lineWrap = true
+            wrapStyleWord = true
+            isOpaque = false
+            border = JBUI.Borders.emptyLeft(24)
+            font = JBUI.Fonts.smallFont()
+            foreground = JBUI.CurrentTheme.ContextHelp.FOREGROUND
+        }
+
         // --- Age Key Path with Verify ---
         age_key_field = create_file_browse_field(
             initial = settings.age_key_file,
@@ -94,6 +109,10 @@ class SopsSettingsConfigurable : Configurable {
         encrypted_editable_checkbox = JBCheckBox(
             SopsBundle.message("settings.encrypted.editable"),
             settings.encrypted_side_editable
+        )
+        decrypted_diff_checkbox = JBCheckBox(
+            SopsBundle.message("settings.decrypted.diff"),
+            settings.show_decrypted_diff
         )
 
         // --- Custom environment ---
@@ -153,11 +172,14 @@ class SopsSettingsConfigurable : Configurable {
         panel = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel(SopsBundle.message("settings.sops.path")), sops_field_row, 1, false)
             .addComponent(create_verify_result_row(sops_verify_icon!!, sops_verify_area!!), 0)
+            .addLabeledComponent(JBLabel(SopsBundle.message("settings.wsl.sops.path")), wsl_sops_path_field!!, 1, false)
+            .addComponent(wsl_sops_hint, 0)
             .addLabeledComponent(JBLabel(SopsBundle.message("settings.age.key.file")), age_field_row, 1, false)
             .addComponent(create_verify_result_row(age_verify_icon!!, age_verify_area!!), 0)
             .addSeparator(8)
             .addComponent(auto_encrypt_checkbox!!, 1)
             .addComponent(encrypted_editable_checkbox!!, 1)
+            .addComponent(decrypted_diff_checkbox!!, 1)
             .addSeparator(8)
             .addLabeledComponent(
                 JBLabel(SopsBundle.message("settings.environment")),
@@ -409,9 +431,11 @@ class SopsSettingsConfigurable : Configurable {
     override fun isModified(): Boolean {
         val settings = SopsSettings.get_instance()
         return sops_path_field?.text != settings.sops_path ||
+                wsl_sops_path_field?.text != settings.wsl_sops_path ||
                 age_key_field?.text != settings.age_key_file ||
                 auto_encrypt_checkbox?.isSelected != settings.auto_encrypt_on_save ||
                 encrypted_editable_checkbox?.isSelected != settings.encrypted_side_editable ||
+                decrypted_diff_checkbox?.isSelected != settings.show_decrypted_diff ||
                 environment_area?.text != settings.custom_environment ||
                 log_path_field?.text != settings.log_path
     }
@@ -419,19 +443,25 @@ class SopsSettingsConfigurable : Configurable {
     override fun apply() {
         val settings = SopsSettings.get_instance()
         settings.sops_path = sops_path_field?.text ?: settings.sops_path
+        settings.wsl_sops_path = wsl_sops_path_field?.text ?: settings.wsl_sops_path
         settings.age_key_file = age_key_field?.text ?: settings.age_key_file
         settings.auto_encrypt_on_save = auto_encrypt_checkbox?.isSelected ?: true
         settings.encrypted_side_editable = encrypted_editable_checkbox?.isSelected ?: false
+        settings.show_decrypted_diff = decrypted_diff_checkbox?.isSelected ?: true
         settings.custom_environment = environment_area?.text ?: ""
         settings.log_path = log_path_field?.text ?: settings.log_path
+        // A changed binary or environment may be a different sops version.
+        SopsWrapper.clear_version_cache()
     }
 
     override fun reset() {
         val settings = SopsSettings.get_instance()
         sops_path_field?.text = settings.sops_path
+        wsl_sops_path_field?.text = settings.wsl_sops_path
         age_key_field?.text = settings.age_key_file
         auto_encrypt_checkbox?.isSelected = settings.auto_encrypt_on_save
         encrypted_editable_checkbox?.isSelected = settings.encrypted_side_editable
+        decrypted_diff_checkbox?.isSelected = settings.show_decrypted_diff
         environment_area?.text = settings.custom_environment
         log_path_field?.text = settings.log_path
         sops_verify_area?.text = ""
@@ -445,11 +475,13 @@ class SopsSettingsConfigurable : Configurable {
         sops_path_field = null
         sops_verify_area = null
         sops_verify_icon = null
+        wsl_sops_path_field = null
         age_key_field = null
         age_verify_area = null
         age_verify_icon = null
         auto_encrypt_checkbox = null
         encrypted_editable_checkbox = null
+        decrypted_diff_checkbox = null
         environment_area = null
         log_path_field = null
         validate_result_area = null

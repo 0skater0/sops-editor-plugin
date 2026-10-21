@@ -2,6 +2,35 @@
 
 All notable changes to this plugin go here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-22
+
+### Added
+
+- Support for projects stored in WSL. On Windows, files on `\\wsl.localhost\` or `\\wsl$\` paths are now decrypted and encrypted by `sops` inside that distribution, through a login shell with Linux paths, so the project's `.sops.yaml` creation rules and the default age key file in WSL apply. Shell profile output such as `ssh-agent` messages no longer ends up in decrypted or encrypted content.
+- New setting *SOPS executable in WSL* for the `sops` command or absolute Linux path used inside WSL. Custom environment variables are passed to WSL without appearing on the command line. Variables that the WSL shell profile sets itself take precedence over them.
+- Diffs of SOPS files, for example in the Git history, the commit window or *Compare with Revision*, get a new viewer *SOPS: decrypted* in the diff viewer switcher. It decrypts both sides in the background and shows the plaintext side by side, read-only, with *(decrypted)* in the side titles and an open lock icon in its banner and, from IDE 2026.2 on, in the viewer switcher. The *All-in-One Diff* does not offer it. *Side-by-side viewer* still shows the ciphertext. If a side cannot be decrypted, the viewer says why and the other viewers keep working. New setting *Show decrypted content in diffs*, on by default.
+- With *Automatically re-encrypt on save* turned off, *Encrypt with SOPS* (`Ctrl+Alt+E` or the editor tab menu) now saves the SOPS split editor: it encrypts the current plaintext and writes the file, like the automatic save. Previously that mode had no way to save.
+
+### Fixed
+
+- *New SOPS Encrypted File* wrote the starter template as plaintext first and encrypted it afterwards, so a failed encryption, for example without a matching `.sops.yaml` rule, left a plaintext file behind. The template is now encrypted first and the file is only created with the ciphertext. On failure no file is created, not even an empty one, and a notification shows the error.
+- *Encrypt with SOPS* inside the split editor no longer tries to encrypt the in-memory decrypted pane as if it were a file on disk; it saves the SOPS file instead.
+- After a failed or skipped save in the split editor, later saves are no longer blocked. This includes a file that could not be written, for example because it is read-only; a notification now says so and the changes stay in the editor.
+- A failed save no longer offers *Try Again* in the editor banner. That action decrypted the file again and replaced the unsaved changes; a failed save now only shows a notification, and *Try Again* after a decrypt error leaves an editor with unsaved changes untouched.
+- A `sops` call that hangs no longer blocks the plugin. Calls are stopped after two minutes, decryption in the diff viewer after one minute, and closing a decrypted diff or canceling its progress stops the running `sops` process.
+- The log no longer contains the file path when retrying a failed decryption.
+- Typing in the split editor while a save is still running no longer marks those changes as saved; the editor stays modified and saving them again stays possible.
+- Saving again while a save is still running, for example with a second `Ctrl+S`, no longer starts a second `sops` run that could finish first and leave older ciphertext on disk. The newer text is saved right after the running save.
+- An empty file encrypted in binary mode was taken for a SOPS JSON document, because `sops` leaves an empty payload unencrypted. It now opens as a binary SOPS file.
+- If `sops` cannot be started, for example because the configured path is wrong, the log no longer contains the path of the executable; it records the error type and the system error code instead.
+
+### Security
+
+- No plaintext temporary files with `sops` 3.10 or newer. Saving and decrypting older revisions pass the text to `sops` through stdin with `--filename-override`, natively and in WSL. The plugin detects the `sops` version once per configured binary; older versions keep the previous temporary file for saving, and decrypting content that is not on disk writes only the ciphertext to a temporary file. If the version cannot be detected, the plugin tries stdin first and only falls back to the temporary file when `sops` refuses to read stdin.
+- Updated the build toolchain to Gradle 9.8.1, Kotlin 2.4.21 and IntelliJ Platform Gradle Plugin 2.19.0, and raised Jackson and jsoup on the build classpath. Fixes the Dependabot alerts for build-tooling dependencies; none of them ship in the plugin.
+- GitHub Actions in the build and release workflows are pinned to full commit SHAs, and the Gradle wrapper verifies the distribution checksum.
+- Dependabot now proposes updates for GitHub Actions and Gradle dependencies weekly, with a 7-day cooldown after each release.
+
 ## [1.1.1] - 2026-06-02
 
 ### Fixed

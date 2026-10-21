@@ -47,4 +47,29 @@ class SopsSettingsTest {
         assertFalse(result.contains('~'))
         assertTrue(result.contains(home))
     }
+
+    @Test
+    fun `custom environment excludes the age key file setting`() {
+        val settings = SopsSettings()
+        settings.age_key_file = "/host/keys.txt"
+        settings.custom_environment = "# comment\nSOPS_AGE_KEY_FILE=/home/u/keys.txt\nFOO = bar\ninvalid\n"
+
+        assertEquals(mapOf("SOPS_AGE_KEY_FILE" to "/home/u/keys.txt", "FOO" to "bar"), settings.get_custom_environment())
+    }
+
+    @Test
+    fun `full environment keeps age key file with custom values taking precedence`() {
+        val settings = SopsSettings()
+        settings.age_key_file = "/host/keys.txt"
+        settings.custom_environment = "FOO=bar"
+        assertEquals(mapOf("SOPS_AGE_KEY_FILE" to "/host/keys.txt", "FOO" to "bar"), settings.get_environment())
+
+        settings.custom_environment = "SOPS_AGE_KEY_FILE=/other/keys.txt"
+        assertEquals("/other/keys.txt", settings.get_environment()["SOPS_AGE_KEY_FILE"])
+    }
+
+    @Test
+    fun `wsl sops path defaults to sops`() {
+        assertEquals("sops", SopsSettings().wsl_sops_path)
+    }
 }

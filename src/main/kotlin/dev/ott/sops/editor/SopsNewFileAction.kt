@@ -49,20 +49,9 @@ class SopsNewFileAction : AnAction() {
         val dialog = NewSopsFileDialog()
         if (!dialog.showAndGet()) return
 
-        val file_name = dialog.get_file_name()
-        val format = dialog.get_format()
-        val initial_content = format.template
-
-        // Write the plaintext file + trigger encryption. The service internally launches a
-        // background coroutine, so we don't need to block the EDT here.
-        com.intellij.openapi.application.ApplicationManager.getApplication().runWriteAction {
-            val file = directory.createChildData(this, file_name)
-            file.setBinaryContent(initial_content.toByteArray(Charsets.UTF_8))
-
-            SopsService.get_instance(project).encrypt_file(file) {
-                com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
-                    FileEditorManager.getInstance(project).openFile(file, true)
-                }
+        SopsService.get_instance(project).create_encrypted_file(directory, dialog.get_file_name(), dialog.get_format()) { file ->
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                FileEditorManager.getInstance(project).openFile(file, true)
             }
         }
     }

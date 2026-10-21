@@ -12,7 +12,8 @@
         <h3>Features</h3>
         <ul>
             <li>Side-by-side decrypted and encrypted view for any SOPS file</li>
-            <li>Automatic re-encryption on Ctrl+S, with an opt-out in settings</li>
+            <li>Automatic re-encryption on Ctrl+S, with an opt-out in settings and a manual save action</li>
+            <li>Decrypted, read-only diffs of SOPS files in Git history and local changes</li>
             <li>Context menu actions for Encrypt with SOPS, Decrypt with SOPS and New SOPS Encrypted File</li>
             <li>Default shortcuts Ctrl+Alt+E to encrypt and Ctrl+Alt+D to decrypt</li>
             <li>Supports .env, YAML, JSON, INI and binary (.sops, .bin) files, matching the <code>sops</code> CLI itself</li>
@@ -28,6 +29,23 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>1.2.0</h3>
+        <ul>
+            <li>Projects stored in WSL now work. On Windows, files on <code>\\wsl.localhost\</code> or <code>\\wsl$\</code> paths are handled by <code>sops</code> inside the distribution, so the project's <code>.sops.yaml</code> rules and the age key file in WSL apply.</li>
+            <li>New setting <em>SOPS executable in WSL</em> for the <code>sops</code> command or path used inside WSL.</li>
+            <li>Decrypted diffs: a new diff viewer <em>SOPS: decrypted</em> shows SOPS files in Git history, local changes and <em>Compare with Revision</em> as read-only plaintext, marked with an open lock icon. The <em>All-in-One Diff</em> does not offer it. The ciphertext stays available in <em>Side-by-side viewer</em>. Can be turned off in settings.</li>
+            <li>With automatic re-encryption turned off, <em>Encrypt with SOPS</em> (Ctrl+Alt+E) now saves the open SOPS file.</li>
+            <li>With <code>sops</code> 3.10 or newer, plaintext is passed to <code>sops</code> through stdin, so no plaintext temporary files are written.</li>
+            <li>A failed <em>New SOPS Encrypted File</em> no longer leaves a plaintext file behind.</li>
+            <li>A SOPS file that cannot be written on save, for example because it is read-only, is reported and the changes stay in the editor.</li>
+            <li>A failed save no longer offers a <em>Try Again</em> that decrypted the file again and replaced the unsaved changes.</li>
+            <li>A <code>sops</code> call that hangs is stopped after two minutes, and closing a decrypted diff stops its <code>sops</code> process.</li>
+            <li>Changes typed while a save is running now stay marked as unsaved.</li>
+            <li>Saving again while a save is still running no longer starts a second <code>sops</code> run; the newer text is saved right after the first one, so older ciphertext can no longer overwrite it.</li>
+            <li>An empty file encrypted in binary mode now opens as a binary SOPS file instead of a JSON document.</li>
+            <li>If <code>sops</code> cannot be started, the log no longer contains the path of the <code>sops</code> executable.</li>
+            <li>Updated the build toolchain and pinned the GitHub Actions used for builds and releases.</li>
+        </ul>
         <h3>1.1.1</h3>
         <ul>
             <li>Fixed a bug that could cause high CPU usage while a SOPS file was open: the editor reported the encrypted file to the IDE's code-analysis daemon while showing the decrypted contents, which made the daemon restart in a loop.</li>
@@ -73,6 +91,9 @@
                            displayType="BALLOON"/>
         <notificationGroup id="sops.notification.important"
                            displayType="STICKY_BALLOON"/>
+
+        <!-- Decrypted diff viewer -->
+        <diff.DiffTool implementation="dev.ott.sops.editor.diff.SopsDecryptedDiffTool"/>
 
         <!-- Save Listener -->
         <fileDocumentManagerListener

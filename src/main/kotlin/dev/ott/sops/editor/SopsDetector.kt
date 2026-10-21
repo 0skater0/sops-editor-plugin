@@ -33,12 +33,13 @@ object SopsDetector {
             // 2026.1 and matches the underlying platform API one-to-one.
             ApplicationManager.getApplication().runReadAction<SopsFormat?> {
                 val text = read_head_and_tail(file)
-                val result = detect_sops_format(text)
+                val result = detect_sops_format(text, file.name)
                 SopsLog.debug("SopsDetector.detect_sops_format_from_file(${file.name}): $result")
                 result
             }
         } catch (e: Exception) {
-            SopsLog.warn("Failed to detect SOPS format for ${file.name}", e)
+            // Only the type: the exception message of a file system error carries the path.
+            SopsLog.warn("Failed to detect SOPS format for ${file.name}: ${e.javaClass.simpleName}")
             null
         }
     }
@@ -66,11 +67,23 @@ object SopsDetector {
     private const val DETECTION_WINDOW = 16 * 1024  // 16 KB head + 16 KB tail = 32 KB max
 
     /**
+     * In-memory counterpart of [read_head_and_tail] for text that is already loaded, for example
+     * a diff side: copies at most two windows of DETECTION_WINDOW characters.
+     */
+    fun head_and_tail(text: CharSequence): String {
+        if (text.length <= DETECTION_WINDOW * 2) {
+            return text.toString()
+        }
+        return text.subSequence(0, DETECTION_WINDOW).toString() + "\n" +
+            text.subSequence(text.length - DETECTION_WINDOW, text.length).toString()
+    }
+
+    /**
      * Pure-content format detection — tries each format probe in order of marker
      * specificity. DOTENV first because its three required markers can't appear anywhere
      * else; BINARY before JSON because a binary envelope would also satisfy the JSON probe.
      */
-    fun detect_sops_format(text: String): SopsFormat? {
+    fun detect_sops_format(text: String, file_name: String? = null): SopsFormat? {
         val ordered = listOf(
             SopsFormat.DOTENV,
             SopsFormat.BINARY,
@@ -78,7 +91,15 @@ object SopsDetector {
             SopsFormat.JSON,
             SopsFormat.YAML,
         )
-        return ordered.firstOrNull { format -> is_sops_content(text, format) }
+        val format = ordered.firstOrNull { format -> is_sops_content(text, format) }
+        // A SOPS JSON file whose only key is an empty "data" is byte for byte the envelope of an
+        // empty binary file; only the file name can tell them apart.
+        if (format == SopsFormat.BINARY && file_name != null && file_name.lowercase().endsWith(".json") &&
+            empty_envelope_regex.containsMatchIn(text.trimStart('﻿').trim())
+        ) {
+            return SopsFormat.JSON
+        }
+        return format
     }
 
     fun is_sops_content(text: String, format: SopsFormat): Boolean {
@@ -96,7 +117,7 @@ object SopsDetector {
     }
 
     /**
-     * Three markers — `data: "ENC[`, `sops: {`, mac/lastmodified — keep innocent JSON
+     * Three markers — `data: "ENC[` (or an empty payload), `sops: {`, mac/lastmodified — keep innocent JSON
      * that happens to use those keywords from passing as a binary envelope. The closing
      * brace deliberately isn't checked: detection input may be a head + tail concatenation
      * with the actual `}` only present in the tail, so a strict `endsWith` would false-
@@ -108,7 +129,9 @@ object SopsDetector {
         // make the plugin lose detection silently.
         val trimmed = text.trimStart('﻿').trim()
         if (!trimmed.startsWith("{")) return false
-        val has_data_enc = data_enc_regex.containsMatchIn(trimmed)
+        // sops leaves an empty payload unencrypted ("data": ""), and the JSON probe would take
+        // that envelope for a JSON document. Only the exact envelope shape counts here.
+        val has_data_enc = data_enc_regex.containsMatchIn(trimmed) || empty_envelope_regex.containsMatchIn(trimmed)
         val has_sops_block = sops_block_regex.containsMatchIn(trimmed)
         if (!has_data_enc || !has_sops_block) return false
         return trimmed.contains("\"mac\"") || trimmed.contains("\"lastmodified\"")
@@ -116,6 +139,7 @@ object SopsDetector {
 
     private val data_enc_regex = Regex("\"data\"\\s*:\\s*\"ENC\\[")
     private val sops_block_regex = Regex("\"sops\"\\s*:\\s*\\{")
+    private val empty_envelope_regex = Regex("^\\{\\s*\"data\"\\s*:\\s*\"\"\\s*,\\s*\"sops\"\\s*:\\s*\\{")
 
     /**
      * For YAML-family formats we look for a `sops:` key at column 0 (top-level) plus either

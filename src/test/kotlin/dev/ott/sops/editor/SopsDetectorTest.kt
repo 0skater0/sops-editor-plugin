@@ -251,6 +251,57 @@ class SopsDetectorTest {
     }
 
     @Test
+    fun `detect_sops_format identifies the envelope of an empty binary file`() {
+        // What sops 3.12 writes for an empty input file in binary mode: the payload stays "".
+        val envelope = "{\r\n\t\"data\": \"\",\r\n\t\"sops\": {\r\n\t\t\"lastmodified\": \"2026-10-22T08:42:33Z\",\r\n" +
+            "\t\t\"mac\": \"ENC[AES256_GCM,data:mac,iv:iv,tag:tag,type:str]\",\r\n\t\t\"version\": \"3.12.1\"\r\n\t}\r\n}\r\n"
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(envelope))
+    }
+
+    @Test
+    fun `the file name decides between an empty binary file and a json file with only an empty data key`() {
+        val envelope = """
+            {
+                "data": "",
+                "sops": {
+                    "lastmodified": "2026-10-22T08:42:33Z",
+                    "mac": "ENC[AES256_GCM,data:mac,iv:iv,tag:tag,type:str]"
+                }
+            }
+        """.trimIndent()
+        assertEquals(SopsFormat.JSON, SopsDetector.detect_sops_format(envelope, "config.JSON"))
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(envelope, "blob.bin"))
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(envelope))
+    }
+
+    @Test
+    fun `a json file name does not turn a non-empty binary envelope into json`() {
+        val envelope = "{\"data\": \"ENC[AES256_GCM,data:abc,type:str]\", \"sops\": {\"mac\": \"ENC[x]\"}}"
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(envelope, "renamed.json"))
+    }
+
+    @Test
+    fun `a sops json document with an empty data key stays json`() {
+        val document = """
+            {
+                "data": "",
+                "password": "ENC[AES256_GCM,data:abc,iv:def,tag:ghi,type:str]",
+                "sops": {
+                    "lastmodified": "2026-05-02T14:18:33Z",
+                    "mac": "ENC[AES256_GCM,data:mac,iv:iv,tag:tag,type:str]"
+                }
+            }
+        """.trimIndent()
+        assertEquals(SopsFormat.JSON, SopsDetector.detect_sops_format(document))
+    }
+
+    @Test
+    fun `an empty data key without sops metadata is not sops`() {
+        assertEquals(null, SopsDetector.detect_sops_format("{\"data\": \"\", \"sops\": {}}"))
+        assertEquals(null, SopsDetector.detect_sops_format("{\"data\": \"\"}"))
+    }
+
+    @Test
     fun `detect_sops_format returns null for plain text without sops markers`() {
         val plain = """
             key: value

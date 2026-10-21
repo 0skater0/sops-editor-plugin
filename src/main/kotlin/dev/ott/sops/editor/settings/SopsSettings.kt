@@ -7,6 +7,7 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.util.SystemProperties
 import com.intellij.util.system.OS
+import dev.ott.sops.editor.SopsWslCommand
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -21,6 +22,8 @@ class SopsSettings : PersistentStateComponent<SopsSettings.State> {
         var encrypted_side_editable: Boolean = false,
         var custom_environment: String = "",
         var log_path: String = default_log_path(),
+        var wsl_sops_path: String = SopsWslCommand.DEFAULT_EXECUTABLE,
+        var show_decrypted_diff: Boolean = true,
     )
 
     private var state = State()
@@ -55,12 +58,27 @@ class SopsSettings : PersistentStateComponent<SopsSettings.State> {
         get() = state.log_path
         set(value) { state.log_path = value }
 
+    var wsl_sops_path: String
+        get() = state.wsl_sops_path
+        set(value) { state.wsl_sops_path = value }
+
+    var show_decrypted_diff: Boolean
+        get() = state.show_decrypted_diff
+        set(value) { state.show_decrypted_diff = value }
+
     fun get_environment(): Map<String, String> {
         val env = mutableMapOf<String, String>()
 
         if (age_key_file.isNotBlank()) {
             env["SOPS_AGE_KEY_FILE"] = resolve_path(age_key_file)
         }
+
+        env.putAll(get_custom_environment())
+        return env
+    }
+
+    fun get_custom_environment(): Map<String, String> {
+        val env = mutableMapOf<String, String>()
 
         for (line in custom_environment.lines()) {
             val trimmed = line.trim()
