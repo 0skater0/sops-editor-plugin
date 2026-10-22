@@ -3,7 +3,7 @@ kotlin = "2.4.21"
 intellijPlatform = "2.19.0"
 # Build-classpath overrides for transitive deps of the IntelliJ Platform Gradle Plugin
 # that are still pinned to vulnerable versions. Drop once the plugin ships them itself.
-jackson = "2.21.7"
+jackson = "2.22.3"
 jsoup = "1.23.2"
 
 [libraries]
