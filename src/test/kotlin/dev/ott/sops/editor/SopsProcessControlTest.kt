@@ -18,6 +18,7 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Callable
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
@@ -60,7 +61,7 @@ class SopsProcessControlTest {
         private val settings get() = SopsSettings.get_instance()
         private lateinit var saved: SopsSettings.State
         private lateinit var work_dir: Path
-        private val notifications = mutableListOf<Notification>()
+        private val notifications = CopyOnWriteArrayList<Notification>()
 
         override fun setUp() {
             super.setUp()
@@ -307,8 +308,9 @@ class SopsProcessControlTest {
             val log = SopsLog.read()
             assertTrue(log, log.contains("sops could not be started: "))
             assertFalse("the executable path must not reach the log: $log", log.contains(missing_dir))
-            // The notifications keep the full message, the user needs it to fix the path.
-            assertTrue(notifications.any { it.content.contains(missing_dir) })
+            // The notifications keep the full message, the user needs it to fix the path. They are
+            // delivered asynchronously and can arrive after the log line.
+            pump_until("notification with the sops path") { notifications.any { it.content.contains(missing_dir) } }
             // The light test project and its services are shared between the cases.
             service.clear_error(file.path)
         }
