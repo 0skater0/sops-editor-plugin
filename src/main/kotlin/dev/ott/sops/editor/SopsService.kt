@@ -1,6 +1,7 @@
 package dev.ott.sops.editor
 
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import dev.ott.sops.editor.notifications.SopsNotifier
@@ -99,6 +100,11 @@ class SopsService(
     }
 
     fun encrypt_file(file: VirtualFile, on_success: suspend () -> Unit) {
+        // sops encrypts what is on disk, so unsaved edits have to get there first. Otherwise they
+        // are missing from the ciphertext, and the still modified document conflicts with the
+        // refresh below; keeping it would later write the plaintext over the encrypted file.
+        val file_documents = FileDocumentManager.getInstance()
+        file_documents.getCachedDocument(file)?.let { file_documents.saveDocument(it) }
         scope.launch {
             val result = SopsWrapper.encrypt_file_in_place(file)
             if (result.success) {

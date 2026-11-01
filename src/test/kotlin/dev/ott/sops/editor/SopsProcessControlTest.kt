@@ -3,10 +3,14 @@ package dev.ott.sops.editor
 import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.SystemInfo
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.LightVirtualFile
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -52,6 +56,9 @@ class SopsProcessControlTest {
 
     @Test
     fun `a sops binary that cannot start keeps its path out of the log`() = run_case("testMissingSopsKeepsPathOutOfLog")
+
+    @Test
+    fun `encrypting a file in place includes its unsaved edits`() = run_case("testEncryptFileSavesUnsavedEdits")
 
     // Needs a directory in which nobody, not even root, can create a file; /proc is one on Linux.
     @Test
@@ -149,6 +156,44 @@ class SopsProcessControlTest {
                     stdin_body,
                 ).joinToString("\n", postfix = "\n")
                 val path = work_dir.resolve("fake-sops.sh")
+                Files.writeString(path, script)
+                path.toFile().setExecutable(true)
+                path.toString()
+            }
+        }
+
+        // Encrypts in place by appending a sops block to the file, so the plaintext stays readable.
+        private fun in_place_sops(): String {
+            val mac = "    mac: ENC[AES256_GCM,data:y,type:str]"
+            return if (SystemInfo.isWindows) {
+                val script = listOf(
+                    "@echo off",
+                    "if \"%~1\"==\"--version\" (",
+                    "  echo sops 3.12.0",
+                    "  exit /b 0",
+                    ")",
+                    "if not \"%~1\"==\"--encrypt\" exit /b 1",
+                    "set \"target=%~f7\"",
+                    "copy /y \"%target%\" \"%target%.in\" >nul",
+                    "(type \"%target%.in\" & echo sops:& echo $mac) > \"%target%\"",
+                    "del \"%target%.in\"",
+                    "exit /b 0",
+                ).joinToString("\r\n", postfix = "\r\n")
+                val path = work_dir.resolve("in-place-sops.cmd")
+                Files.writeString(path, script)
+                path.toString()
+            } else {
+                val script = listOf(
+                    "#!/bin/sh",
+                    "case \"\$1\" in",
+                    "  --version) echo 'sops 3.12.0'; exit 0 ;;",
+                    "  --encrypt) ;;",
+                    "  *) exit 1 ;;",
+                    "esac",
+                    "for target; do :; done",
+                    "{ cat \"\$target\"; printf 'sops:\\n$mac\\n'; } > \"\$target.in\" && mv \"\$target.in\" \"\$target\"",
+                ).joinToString("\n", postfix = "\n")
+                val path = work_dir.resolve("in-place-sops.sh")
                 Files.writeString(path, script)
                 path.toFile().setExecutable(true)
                 path.toString()
@@ -297,6 +342,28 @@ class SopsProcessControlTest {
             val log = SopsLog.read()
             assertTrue(log.contains("Could not detect the sops version, using temporary files"))
             assertFalse(log.contains("Executing sops encrypt"))
+        }
+
+        fun testEncryptFileSavesUnsavedEdits() {
+            settings.sops_path = in_place_sops()
+            val dir = work_dir.toRealPath()
+            VfsRootAccess.allowRootAccess(testRootDisposable, dir.toString())
+            val path = dir.resolve("secrets").resolve("plain.yaml")
+            Files.writeString(path, "password: on-disk\n")
+            val file = requireNotNull(LocalFileSystem.getInstance().refreshAndFindFileByPath(path.toString().replace('\\', '/')))
+            val documents = FileDocumentManager.getInstance()
+            val document = requireNotNull(documents.getDocument(file))
+            WriteCommandAction.runWriteCommandAction(project) { document.setText("password: typed-not-saved\n") }
+            assertTrue(documents.isDocumentUnsaved(document))
+
+            var encrypted = false
+            SopsService.get_instance(project).encrypt_file(file) { encrypted = true }
+            pump_until("encrypt finished") { encrypted }
+            val on_disk = Files.readString(path)
+            assertTrue("sops must get the unsaved edits: $on_disk", on_disk.contains("typed-not-saved"))
+            assertTrue(on_disk, on_disk.contains("sops:"))
+            pump_until("document shows the encrypted file") { document.text.contains("sops:") }
+            assertFalse("a modified document would later write the plaintext back", documents.isDocumentUnsaved(document))
         }
 
         fun testTempFileFailure() {
