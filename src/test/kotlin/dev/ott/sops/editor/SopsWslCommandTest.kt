@@ -75,6 +75,18 @@ class SopsWslCommandTest {
     }
 
     @Test
+    fun `plan passes a file name with shell metacharacters through as one unchanged argument`() {
+        // Quoting for the login shell is left to the platform, so plan must neither split nor escape.
+        val name = "it's \$(touch pwned) & \"x\" `id`;.yaml"
+        val target = "//wsl.localhost/Ubuntu/home/u/my dir/$name"
+        val args = SopsStdinArgs.encrypt(SopsFormat.YAML, target)
+        val plan = SopsWslCommand.plan(args, target, "//wsl.localhost/Ubuntu/home/u/my dir", fake_parser)!!
+        assertEquals(args.size, plan.args.size)
+        assertEquals("/home/u/my dir/$name", plan.args.last())
+        assertEquals("/home/u/my dir", plan.linux_working_dir)
+    }
+
+    @Test
     fun `resolve_executable falls back to sops for blank input`() {
         assertEquals("sops", SopsWslCommand.resolve_executable(""))
         assertEquals("sops", SopsWslCommand.resolve_executable("   "))

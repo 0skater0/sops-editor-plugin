@@ -316,4 +316,48 @@ class SopsDetectorTest {
         assertEquals(null, SopsDetector.detect_sops_format(""))
         assertEquals(null, SopsDetector.detect_sops_format("   \n\n  "))
     }
+
+    private val binary_envelope = """
+        {
+            "data": "ENC[AES256_GCM,data:abc,iv:def,tag:ghi,type:str]",
+            "sops": {
+                "lastmodified": "2026-05-02T14:18:33Z",
+                "mac": "ENC[AES256_GCM,data:mac,iv:iv,tag:tag,type:str]",
+                "version": "3.12.1"
+            }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `detect_sops_format keeps a binary envelope with a BOM or CRLF line endings binary`() {
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format("\uFEFF" + binary_envelope))
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(binary_envelope.replace("\n", "\r\n")))
+    }
+
+    @Test
+    fun `detect_sops_format identifies a compact binary envelope`() {
+        val compact = "{\"data\":\"ENC[AES256_GCM,data:abc,type:str]\",\"sops\":{\"mac\":\"ENC[AES256_GCM,data:m,type:str]\",\"version\":\"3.12.1\"}}"
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(compact))
+    }
+
+    @Test
+    fun `detect_sops_format finds a large binary envelope in its head and tail window`() {
+        // The ENC blob pushes the sops block far past the head window.
+        val large = binary_envelope.replace("data:abc", "data:" + "A".repeat(100_000))
+        val window = SopsDetector.head_and_tail(large)
+        assertTrue(window.length < large.length)
+        assertEquals(SopsFormat.BINARY, SopsDetector.detect_sops_format(window))
+    }
+
+    @Test
+    fun `binary content written with the yaml store is yaml`() {
+        // sops --output-type yaml on binary input writes a data key, which decrypts as yaml.
+        val yaml = """
+            data: ENC[AES256_GCM,data:abc,type:str]
+            sops:
+                lastmodified: "2026-05-02T14:18:33Z"
+                mac: ENC[AES256_GCM,data:m,type:str]
+        """.trimIndent()
+        assertEquals(SopsFormat.YAML, SopsDetector.detect_sops_format(yaml))
+    }
 }
