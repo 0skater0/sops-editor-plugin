@@ -2,6 +2,13 @@
 
 All notable changes to this plugin go here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- With `sops` older than 3.10, a save whose temporary file could not be written, for example because the folder does not allow new files, left the split editor waiting for that save forever: later saves did nothing and no error was shown. The save now fails with a notification and the changes stay in the editor. *New SOPS Encrypted File* and decrypted diffs report the same error instead of failing silently, and a partly written temporary file is removed.
+- *Encrypt with SOPS* on a plaintext file with unsaved changes encrypted the version on disk without those changes. The IDE then reported a conflict between the editor and the file, and keeping the editor's version wrote the plaintext back over the encrypted file. Unsaved changes are now saved before `sops` runs.
+
 ## [1.2.0] - 2026-10-22
 
 ### Added
