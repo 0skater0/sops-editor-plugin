@@ -258,7 +258,11 @@ object SopsWrapper {
             working_dir?.let { create_temp_file_in_wsl_dir(Path.of(it), ciphertext, format) }
                 ?: return SopsResult(stdout = "", stderr = SopsBundle.message("wsl.temp.file.failed"), exit_code = -1)
         } else {
-            create_temp_file(ciphertext, format)
+            try {
+                create_temp_file(ciphertext, format)
+            } catch (e: Exception) {
+                return temp_file_failure(e)
+            }
         }
         try {
             val tmp_path = tmp_file.toAbsolutePath().toString()
@@ -294,13 +298,18 @@ object SopsWrapper {
                     stderr = SopsBundle.message("wsl.temp.file.failed"),
                     exit_code = -1,
                 )
-        } else if (parent_path != null && Files.isDirectory(parent_path)) {
-            val tmp = Files.createTempFile(parent_path, ".sops-editor-tmp-", format.primary_extension)
-            apply_owner_only_file_permissions(tmp)
-            Files.writeString(tmp, text)
-            tmp
         } else {
-            create_temp_file(text, format)
+            // A failure here has to end as a result like a failed sops call. Thrown, it would skip
+            // the callbacks of the caller and leave the editor waiting for the save forever.
+            try {
+                if (parent_path != null && Files.isDirectory(parent_path)) {
+                    write_temp_file(Files.createTempFile(parent_path, ".sops-editor-tmp-", format.primary_extension), text)
+                } else {
+                    create_temp_file(text, format)
+                }
+            } catch (e: Exception) {
+                return temp_file_failure(e)
+            }
         }
         try {
             val tmp_path = tmp_file.toAbsolutePath().toString()
@@ -335,11 +344,30 @@ object SopsWrapper {
     }
 
     private fun create_temp_file(content: String, format: SopsFormat): Path {
-        val extension = format.primary_extension
-        val tmp_path = Files.createTempFile("sops-editor-", extension)
-        apply_owner_only_file_permissions(tmp_path)
-        Files.writeString(tmp_path, content)
-        return tmp_path
+        return write_temp_file(Files.createTempFile("sops-editor-", format.primary_extension), content)
+    }
+
+    // Removes the file again when the content cannot be written, so no partial plaintext stays.
+    private fun write_temp_file(tmp: Path, content: String): Path {
+        try {
+            apply_owner_only_file_permissions(tmp)
+            Files.writeString(tmp, content)
+        } catch (e: Exception) {
+            delete_temp_file(tmp)
+            throw e
+        }
+        return tmp
+    }
+
+    private fun temp_file_failure(e: Exception): SopsResult {
+        // Only the type goes to the log, the exception message carries the temp file path.
+        SopsLog.warn("Failed to create the temp file: ${e.javaClass.simpleName}")
+        return SopsResult(
+            stdout = "",
+            stderr = SopsBundle.message("temp.file.failed", e.message ?: e.javaClass.simpleName),
+            exit_code = -1,
+            log_stderr = "temporary file could not be written: ${e.javaClass.simpleName}",
+        )
     }
 
     /**

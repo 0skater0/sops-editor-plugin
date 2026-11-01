@@ -13,6 +13,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import dev.ott.sops.editor.settings.SopsSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Files
@@ -50,6 +52,11 @@ class SopsProcessControlTest {
 
     @Test
     fun `a sops binary that cannot start keeps its path out of the log`() = run_case("testMissingSopsKeepsPathOutOfLog")
+
+    // Needs a directory in which nobody, not even root, can create a file; /proc is one on Linux.
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    fun `a temporary file that cannot be written fails the save instead of blocking it`() = run_case("testTempFileFailure")
 
     private fun run_case(name: String) {
         val case = Cases()
@@ -290,6 +297,33 @@ class SopsProcessControlTest {
             val log = SopsLog.read()
             assertTrue(log.contains("Could not detect the sops version, using temporary files"))
             assertFalse(log.contains("Executing sops encrypt"))
+        }
+
+        fun testTempFileFailure() {
+            // sops 3.9 cannot read stdin, so the plaintext goes through a temporary file next to the target.
+            settings.sops_path = fake_sops("sops 3.9.0", help_ok = true, stdin_call = Behavior.PRINT)
+            val target = "/proc/sops-editor-test.yaml"
+            val failure_prefix = SopsBundle.message("temp.file.failed", "")
+            val direct = runBlocking { SopsWrapper.encrypt_text("a: 2\n", SopsFormat.YAML, target) }
+            assertFalse(direct.success)
+            assertTrue(direct.stderr, direct.stderr.startsWith(failure_prefix))
+            assertFalse("the temp file path must not reach the log", direct.stderr_for_log.contains("/proc"))
+
+            val file = object : LightVirtualFile("sops-editor-test.yaml", "a: 1\n") {
+                override fun getPath(): String = target
+            }
+            var not_saved = false
+            var saved_content: String? = null
+            SopsService.get_instance(project).encrypt_and_save(
+                file,
+                "a: 2\n",
+                "a: 1\n",
+                on_not_saved = { not_saved = true },
+            ) { saved_content = it }
+            pump_until("the save reports the failure") { not_saved }
+            assertNull("on_success must not run without ciphertext", saved_content)
+            pump_until("failure notification") { notifications.any { it.content.contains(failure_prefix) } }
+            assertFalse(SopsLog.read().contains("/proc/"))
         }
 
         fun testMissingSopsKeepsPathOutOfLog() {
